@@ -1,0 +1,102 @@
+###############################################################################
+##                          Helpful Docker commands                          ##
+###############################################################################
+
+#__________ IMAGE __________
+docker images  ----------------------------------------> show all images
+docker rmi [imageid] ----------------------------------> remove an image
+docker build -t "my tag" ------------------------------> tag the image, the image can be accessible by [repo]:[tag]
+             --network=host ---------------------------> use the host network for 'RUN' command 
+             [path] -----------------------------------> build path, where the Dockerfile is.
+
+#__________ CONTAINER __________
+docker ps -a ------------------------------------------> show all containers
+docker stop [containerid] -----------------------------> stop a running container 
+docker rm [containerid] -------------------------------> rm q stopped or an exited container
+docker inspect [containerid] --------------------------> inspect a container
+docker inspect network ls -----------------------------> show all networks
+docker inspect network [networkname] ------------------> inspect a specific network (like a config file but dynamicly modified with the docker's behavior,ex: link to a container)
+docker run -it          -------------------------------> interactive 
+           -rm          -------------------------------> rm after exited
+           --name=[name]-------------------------------> give a name to the container
+           -v $PWD:/app -------------------------------> map dir app to current dir in host OS(mount the current dir to container dir app)
+           -w [dir]     -------------------------------> indicate the working directory in container
+        ______________________________________________________________________________________________________________________________
+           -d           -------------------------------> run in a daemon mode, usually for database container
+           -p 80:8080   -------------------------------> map the host's port 80 to container's port 8080 (only non host mode)
+           --network=[networkname]---------------------> indicate the network to use , default is bridge
+           --link=[containername]:[aliasname]----------> link client container to another conainer(ex:node to mongo),containername(not id) is the container to link, aliasname is the name to use in the client container to ping the one we want to reach.
+           [imagename]  -------------------------------> indicate the image to run
+           bash         -------------------------------> run in bash 
+docker history centos   -------------------------------> all the commands that were run against the centos image
+
+
+
+###############################################################################
+##                              What I learnt                                ##
+###############################################################################
+
+*** NETWORK ***
+[bridge]
+1. It's a isolated network,connected with the host's network by interface docker0(172.17.0.1)
+2. If we don't indicate the network to use while running a container, the default will be bridge with:
+    "Subnet": "172.17.0.0/16"
+    "Gateway": "172.17.0.1"
+    and each container attached to it has an ip in that subnet. (172.17.0.2 for exemple)
+    All the containers using the same network can ping each other
+    # cat /etc/hosts ------> run in container to know more about it's network info
+3. when we look at the network state by ifconfig on host, we can see some vituel eths(vethxxxx), each of them corresponds to a container.
+
+[host]
+Container's network=host's network(they are consider as the same machine)
+1. When we want to share the host's network but isolate other stuff we do:
+    --network=host
+2. In this, the container doesn't have its own network(no ip address distributed to the container).For the network, the container is considered as host itself.
+   For exemple:
+    - we can connect to host's localhost(127.0.0.1) by address localhost in the container,This is especially useful when we want to use the host's cntlm proxy, otherwise we will not be able to connect to host's localhost in the container, because the container's localhost is not host's localhost in other network modes.
+    - if we run an application listenning on 8000 in the container, we can see by 'netstat' on host that it's also listenning on 8000
+    - when we run a container on host mode, there won't be a virtual eth corresponding to it. We can tell that for network, the container is considered as the same machine as the host.
+
+
+[br-ceec4efdb7c8]
+It's the supervision network.
+
+###############################################################################
+#                                 To check                                    #
+###############################################################################
+host:
+1. use cntlm -v listenning to 0.0.0.0:3128  (maybe not necessary while using network=host, haven't tried with "service cntlm start")
+    CHECKED: cntlm no need to listent to 0.0.0.0 while containter's network is host.
+
+2. config docker's dns:(maybe not necessary, to check)
+    in /etc/docker/
+    create or modify daemon.json
+    write:
+        {
+            "dns": ["your_dns_address", "8.8.8.8"] //8.8.8.8 only, work without problem
+        }
+
+    CHECKED: no need :/  docker use the host's dns(which can be configured in /etc/resolv.config)
+    
+3. docker run -it --network=host ---------------> this allow us to share the network with the host and connect to 127.0.0.1
+
+4. never use ping to test network, ping doesn't work under proxy, but wget and curl work (ping ->cmtp protocol,but we set proxy for http & https)
+
+5. in the container 
+        export http_proxy=127.0.0.1:3128
+        export https_proxy=127.0.0.1:3128
+    above make curl/wget/pip work by using host's proxy because they all take the env proxy variables.
+    npm is special, do as follows:
+        npm config set proxy 'http://127.0.0.1:3128'
+        npm config set https-proxy 'http://127.0.0.1:3128'  (http//: is necessary, otherwise it won't work)
+
+
+##############################################################################
+#                                  To Do                                     #
+##############################################################################
+
+1. check the connection between node container and mongo container bia mongoose
+2. check docker compose to make to container work together
+3. if not , build a image with node + mongo
+4. run api in container
+5. integrated to gitlabCI

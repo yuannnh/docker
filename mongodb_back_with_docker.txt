@@ -1,0 +1,35 @@
+###############################################################################
+##              how to do mongodb backup with docker                         ##
+###############################################################################
+
+*** 1. Run mongo container in daemon mode ***
+    docker run -d --name=mongo_container mongo
+
+*** 2. dump script ***
+        ________________________________________________________________________________________________________________________________________________________________________________________________________
+        #!/bin/bash
+        docker run --rm --link mongo_container:mongo \                                   # run a container to do the dump job
+            -v /path/to/dump/repo:/data                                                  # mount the dump repo on the host to /data in container, the dump file in /data will also be stored in dump repo on host
+            mongo bash -c \                                                              # following commands is to exectue in the container
+                'mongodump -v --host mongo:27017 --db "ApiAxiomeDB" --collection "documents" --out /data &&\
+                BACKUP_NAME=backup.$(date "+%y_%m_%d_%H_%M").tar.gz && \
+                tar zcvf "/backups/$BACKUP_NAME" /data &&  \
+                # SOME COMMANDS TO SEND YOUR DUMP TO SOMWHERE MAYBE'
+        _________________________________________________________________________________________________________________________________________________________________________________________________________
+    To do dump we can also dump a entire db instead of dump collection by colletion in one db
+    command will be mongodump -v --host mongo:27017 --db "ApiAxiomeDB" --out /data
+    Howerver, the bson files will be stored in /data/ApiAxiomeDB
+
+*** 3. Send tar to the place we want to restore ***
+
+*** 4. restore script ***
+        ________________________________________________________________________________________________________________________________________________________________________________________________________
+        #!/bin/bash
+        docker run --rm --link mongo_container:mongo \                                   # run a container to do the restore job
+            -v /path/to/restore/repo:/data \
+            mongo bash -c \
+            'tar zxvf "/data/$BACKUP_NAME" --directory /data && \
+             mongorestore --host mongo:27017 --db "ApiAxiomeDB" --drop --collection "documents" "/data/ApiAxiomeDB/documents.bson"'
+        ________________________________________________________________________________________________________________________________________________________________________________________________________
+
+There might be some path problem in this doc, please check the path before executing the commands.

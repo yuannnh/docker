@@ -1,0 +1,103 @@
+###############################################################################
+##                   docker-compose exemple with node + mongodb              ##
+###############################################################################
+
+*** 1. install docker compose ***
+  sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+  sudo chmod +x /usr/local/bin/docker-compose
+  docker-compose --version
+
+*** 2. create your directroy for docker-compose with following files as an exemple ***
+  .
+  ├── app-node                   # your app source code file (dir)
+  ├── restore                    # your db restore file (dir)
+  └── docker-compose.yml         # docker-compose config file
+
+  Each directory corresponds to an image we are going to build
+
+*** 3. edit docker-compose.yml ***
+
+  Our steps:
+    1) run mongo
+    2) restore data in mongodb
+    3) run app
+  So there is an inner dependence between the containers we are going to run
+  app denpends on restore depends on mongo
+
+  # __________________________docker-compse.yml________________________________
+      version: "2"
+      services:                                     # each container is a service
+        app:                                        # app is our application
+          container_name: app
+          restart: always                           # when running fail always restart
+          build: ./app-node                         # image we use is built from the api-node directory which contains app source code and a Dockerfile
+          ports:                                    # we map the container port 3000 to our host port 80, the container:3000 will be reach by host's 0.0.0.0:80
+            - "80:3000"
+          links:                                    # link to the other service, we can use only the service's name or [service's name:alias], in our current service(container), alias represent the linked service's ip address.The servie will be reachable by service's name(first case), or by the alias. Here is mongo
+            - mongo
+          depends_on:                               # The services depended on will be run before the current service. Here restore will run before app
+            - restore
+        restore:
+          container_name: restore
+          build: ./restore                          # build restore image from the restore directory which contains the Dockerfile and all the necessary source
+          links:
+            - mongo                                 # restore container need to communicate with mongo container
+          depends_on:                               # only after the mongodb running, we can restore data 
+            - mongo
+        mongo:
+          container_name: mongodb
+          image: mongo                              # For our db, we have nothing to add beyond the original mongo image, so we run directly the image mongo
+          ports:
+          - "27017:27017"                           # map the port 27017 of your host to the 27017 of your mongo container, in this way, your db will also be accessible from your host, but if you have nothing to do from your host to db, you can delete this. 
+
+  NOTICES:
+    1) why an seperated container to restore data rather than do it in mongo container or do it on host?
+       If we want to do it on host, mongodb should be installed on your host, which is not necessary. And it's also not docker's philosopthy. Host is only to host docker and its related files, but not the tools for a specific app
+       restore is the job that we do only once in container, it won't be build into the image. so we should use CMD in Dockerfile.
+       CMD should be used only once in Dockerfile.
+       when we run the original mongo image, a CMD to run mongod will be executed by default
+       if we want to build an image from mongo and add our own CMD, we need to add the command to run mongod as well.
+       Which is feasable but i personally don't like it.
+
+    2) Pay attention on space after the ':', otherwise yaml will yeild au error.
+
+*** 4. create Dockerfile for each directory from which we want to build an image ***
+  
+  1) __app__
+    
+    ├── myapp                                       # source code directory
+    └── Dodckerfile                                 # Dockerfile
+
+    # ___________________________ Dockerfile ________________________________
+      FROM node:latest
+      RUN mkdir /app
+      WORKDIR /app
+      COPY ./myapp /app
+      EXPOSE 3000
+      CMD ["node", "server.js"]
+
+  2) __restore__
+    
+    ├── toRestore                                       # source code directory
+    ├── restore.sh                                      # bash script to execute in container
+    └── Dodckerfile
+    
+    # ___________________________ Dockerfile ________________________________
+      FROM mongo
+      RUN mkdir /restore
+      WORKDIR /restore
+      COPY . /restore                                   # This will also copy the Dockerfile to the container, it doesn't matter but we still don't want. it would be better to do two copy, one for to restore and another for restore.sh. Or put them in a dir
+      RUN chmod 755 restore.sh              
+      CMD ["./restore.sh"]
+
+*** 5. run the docker-compose ***
+  Everything is ready! run:
+    docker-compose up ----------> This will firstly build all the image then run them in order.
+                -d    ----------> Run behind, in this mode we won't see the logs
+  To stop:
+    docker-compose stop --------> all the containers will be in exit mode
+    docker-compose rm   --------> rm the exited containers
+  
+  To rebuild:
+    docker-compose build--------> If you run docker-compose up once, the next time it use the the image in cash, if your modified the Dockerfile, you should rebuild it then run it. 
+               

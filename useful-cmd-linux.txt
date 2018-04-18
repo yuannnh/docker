@@ -1,0 +1,14 @@
+###############################################################################
+##                          Helpful Linux commands                          ##
+###############################################################################
+***system config***
+cd /etc ------------------------------------------->all system config files are stored here
+
+***others***
+ps -ef | grep [keywords] --------------------------> show all running process contains [keywords]
+service [name] start/stop -------------------------> start or stop a service(can be docker/cntlm/mongo...)
+/etc/resolv.conf ----------------------------------> where we configure the dns to use
+
+***yum***
+cd yum.repo.d -------------------------------------> add files in this repo to configure the repos for yum
+

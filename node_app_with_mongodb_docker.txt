@@ -1,0 +1,11 @@
+###############################################################################
+##           run node app with mongodb in seprated docker container          ##
+###############################################################################
+
+*** 1. Modify js file which connecting to mongodb ***
+    mongoose.connect('mongodb://mongo:27017/ApiAxiomeDB');
+    INSTEAD OF
+    mongoose.connect('mongodb://localhost:27017/ApiAxiomeDB');
+
+*** 2. Run node container with link to mongo ***
+    docker run -it --name='api-node' -v $PWD:/app -p 80:3000 --link db:mongo node bash

@@ -1,0 +1,23 @@
+###############################################################################
+##              CONFIGURER L'ENVIRONNEMENT POUR JOUER AVEC DOCKER            ##
+###############################################################################
+1. Si travailler derrière un proxy cntlm, vérifier que le cntlm marche:
+    wget ou curl(ne utilise pas ping, ping est par protocol cmtp mais pas http, cntlm est un proxy http)
+
+2.configure un network docker host.
+
+3.lancer image avec --network=host(qui permet le container partage le netwrok avec host)
+
+4.fait la plus part des outils dans le container savent utiliser le proxy:
+    export http_proxy=127.0.0.1:3128
+    export https_proxy=127.0.0.1:3128
+    Cela marche pour les outils comme python, curl, wget au moins
+  
+  si vous voulez faire avec Dockerfile, utilise:(dans ce cas il faut builder image avec docker build --network=host)
+    ENV http_proxy 127.0.0.1:3128
+    ENV https_proxy 127.0.0.1:3128
+  parce que chaque command dans le Dockerfile prend un container indépendent, il faut le command exécute fait la modif statique mais pas que pour une session
+  
+  Si vous voulez utiliser npm:
+    npm config set proxy 'http://127.0.0.1:3128'
+    npm config set https-proxy 'http://127.0.0.1:3128'  (http//: est nécessaire ici)
